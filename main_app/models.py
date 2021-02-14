@@ -9,7 +9,7 @@ class Users(Base):
     __tablename__ = 'users'
 
     id = Column('id', Integer, primary_key=True)
-    user_id = Column('user_id', String(100), nullable=False)
+    user_id = Column('user_id', String(100), nullable=False, unique=True)
     username = Column('username', Unicode(150))
 
     def __init__(self, user_id, username) -> None:
@@ -23,8 +23,9 @@ class Films(Base):
     id = Column('id', Integer, primary_key=True)
     film_name = Column('film_name', Unicode(300), nullable=False)
     date_created = Column('date_created', DateTime, nullable=False)
-    user = Column('user', Integer, ForeignKey('users.id'))
+    user = Column('user_id', String(100), ForeignKey('users.user_id'))
 
-    def __init__(self, film_name, date_created) -> None:
+    def __init__(self, film_name, date_created, user) -> None:
         self.film_name = film_name
         self.date_created = date_created
+        self.user = user

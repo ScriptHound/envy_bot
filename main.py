@@ -2,13 +2,15 @@ import logging
 import types
 import asyncio
 import re
+import datetime
 
-from sqlalchemy.orm import session, sessionmaker
+import psycopg2
+from sqlalchemy.orm import sessionmaker
 from aiogram import Bot, Dispatcher, executor, types
 
 from config_handler import get_bot_token
 from db_config import engine
-from main_app.queries import UserQuery
+from main_app.queries import FilmQuery, UserQuery
 
 API_TOKEN = get_bot_token()
 
@@ -25,16 +27,26 @@ async def send_welcome(message: types.Message):
     await message.reply("Привет, я Энви :)")
 
 
-@dp.message_handler(commands=['Посмотреть'])
-async def echo(message: types.Message):
-    film_name = ""
-    logging.info(message['from']['id'])
+@dp.message_handler(commands=['create_film'])
+async def create_film(message: types.Message):
+    conn = engine.connect()
+    session = Session(bind=conn)
+    from_id = str(message['from']['id'])
+    curtime = datetime.datetime.now()
+
     try:
-        logging.info(message.text)
+        # user = UserQuery.get_user_by_user_id(session, from_id)
         film_name = re.search(r"^.*\s(.*)", str(message.text)).group(1)
-    except AttributeError:
-        await message.answer('Ты что-то не то написал...')
-    await message.answer(f'Хорошо, я записала: {film_name}')
+        FilmQuery.create_film(session, film_name, curtime, from_id)
+
+        session.commit()
+        await message.answer(f'Я записала, {film_name}!')
+    except Exception:
+        session.rollback()
+        await message.answer('Ой, что-то пошло не так(')
+        raise RuntimeError('Film creation failure')
+    finally:
+        session.close()
 
 
 @dp.message_handler(commands=['create_user'])
@@ -47,9 +59,25 @@ async def create_user(message: types.Message):
     try:
         UserQuery.create_user(session, from_id, username)
         session.commit()
+    except psycopg2.errors.UniqueViolation:
+        session.rollback()
+        await message.answer(f'Юзер {username} уже есть))0')
+    finally:
+        session.close()
+
+
+@dp.message_handler(commands=['delete_user'])
+async def delete_user(message: types.Message):
+    conn = engine.connect()
+    session = Session(bind=conn)
+
+    user_id = '289436398'
+    try:
+        UserQuery.delete_user(session, user_id)
+        session.commit()
     except Exception:
         session.rollback()
-        raise RuntimeError('DB Transaction failed')
+        raise RuntimeError("User deleting failed")
     finally:
         session.close()
 
