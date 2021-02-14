@@ -1,0 +1,4 @@
+aiogram
+sqlalchemy
+alembic
+psycopg2-binary
